@@ -1,0 +1,45 @@
+{
+  "name": "foldmark",
+  "version": "0.1.0",
+  "description": "Visual feedback for Foldkit applications and coding agents",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/foldmark.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "prepare": "effect-tsgo patch",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "build:demo": "vite build --config vite.demo.config.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "peerDependencies": {
+    "@effect/platform-browser": "4.0.0",
+    "effect": "4.0.0",
+    "foldkit": "0.165.0"
+  },
+  "devDependencies": {
+    "@effect/language-service": "0.87.3",
+    "@effect/platform-browser": "4.0.0",
+    "@effect/tsgo": "0.48.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.4",
+    "effect": "4.0.0",
+    "foldkit": "0.165.0",
+    "prettier": "3.9.9",
+    "typescript": "7.0.2",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
+  }
+}
