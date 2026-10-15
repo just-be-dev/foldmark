@@ -16,7 +16,7 @@ Saving a note, creating the transport, and importing the package do **not** subm
 From a source checkout:
 
 ```sh
-npm run feedback -- --project my-app --origin http://localhost:5173
+mise run feedback -- --project my-app --origin http://localhost:5173
 ```
 
 After building/installing the package:
@@ -30,18 +30,18 @@ Defaults are `http://127.0.0.1:5177`, the exact allowed browser origin `http://l
 The readiness message is written to **stderr**. It prints the endpoint, project ID, allowed origins, and the path to `pairing-token`—never the credential itself. Read that file locally and pass its value to the development app:
 
 ```ts
-import { mountFoldmark } from 'foldmark'
+import { mountFoldmark } from "foldmark";
 
 const feedback = mountFoldmark({
   feedback: {
-    endpoint: 'http://127.0.0.1:5177',
-    projectId: 'my-app',
+    endpoint: "http://127.0.0.1:5177",
+    projectId: "my-app",
     token: pairingToken, // Read/paste locally. Never commit, export, or put in a URL.
   },
-})
+});
 
 // The host still owns this lifecycle.
-import.meta.hot?.dispose(() => feedback.dispose())
+import.meta.hot?.dispose(() => feedback.dispose());
 ```
 
 `pairingToken` above is host-supplied configuration, not a Foldmark global. Keep this integration development-only. Browser JavaScript must hold the credential to send authenticated requests; every script running in that development page shares its trust. Do not pair hostile pages or expose the credential in a public deployment.
@@ -116,20 +116,20 @@ Captured page text, selectors, notes, source hints, and screenshot contents are 
 For a host-owned integration without the toolbar:
 
 ```ts
-import { createFeedbackClient } from 'foldmark'
+import { createFeedbackClient } from "foldmark";
 
 const client = createFeedbackClient({
-  endpoint: 'http://127.0.0.1:5177',
-  projectId: 'my-app',
+  endpoint: "http://127.0.0.1:5177",
+  projectId: "my-app",
   token: pairingToken,
-})
+});
 
 // No I/O until a method is called. Keep an ID across a retry of the SAME submission.
-const requestId = crypto.randomUUID()
-const submitted = await client.submit(annotations, { requestId })
-const status = await client.get(submitted.id)
-const changes = await client.events(0)
-client.dispose() // Aborts owned in-flight requests; future methods fail.
+const requestId = crypto.randomUUID();
+const submitted = await client.submit(annotations, { requestId });
+const status = await client.get(submitted.id);
+const changes = await client.events(0);
+client.dispose(); // Aborts owned in-flight requests; future methods fail.
 ```
 
 The client also provides `list()`, `claim(id, input)`, `complete(id, input)`, and `close()` (an alias of `dispose`). Server errors preserve `FeedbackTransportError` with an inspectable `.status` and `.code`; a competing active claim produces status `409` and code `claimed`.
@@ -170,9 +170,9 @@ Run `foldmark-server --help` for flags. Supported flags are `--mcp`, `--project`
 ## Verification
 
 ```sh
-npx vitest run tests/server tests/transport.test.ts
-npm run typecheck
-npm run build
+bunx vitest run tests/server tests/transport.test.ts
+mise run typecheck
+mise run build
 ```
 
 Tests cover explicit transport submission, cancellation, error identity, origin/Host/auth rejection, body limits, project isolation, concurrent deduplication and claims, pre-commit rollback and post-rename uncertainty, expiry scheduling and restart, private file modes, protocol-only CLI stdout and shutdown, and real legacy/current MCP subscription delivery (including lease expiry without another mutation). They do not establish that every third-party MCP host automatically schedules an agent turn.

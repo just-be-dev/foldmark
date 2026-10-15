@@ -16,7 +16,7 @@ The extension is typechecked against `@earendil-works/pi-coding-agent@1.1.0`. It
 From this checkout:
 
 ```sh
-npm run build
+mise run build
 pi --extension /absolute/path/to/foldmark/dist/pi.js
 ```
 
@@ -91,9 +91,9 @@ The browser submits tasks; the companion stores and coordinates them; the Pi ext
 ## Checks
 
 ```sh
-npm test -- --run tests/pi
-npm run typecheck
-npm run build
+bunx vitest run tests/pi
+mise run typecheck
+mise run build
 ```
 
 The tests cover the bridge state machine and extension opt-in/lifecycle, plus real authenticated loopback HTTP and filesystem persistence: browser submission, atomic claim, correlated fake Pi turn, completion visible through the browser client, restart recovery, failed/interrupted outcomes, renewal, ownership loss, and shutdown. They do not call a paid model or establish that every third-party Pi extension preserves the prompt and lifecycle contracts.

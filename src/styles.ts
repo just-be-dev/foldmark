@@ -75,4 +75,4 @@ textarea::placeholder { color:var(--fm-muted); }
 @media(max-width:520px) { .dock-wrap { right:12px; bottom:12px; } .panel { right:12px; bottom:80px; } .brand-mark { padding:0 4px; } .dock { gap:1px; } .dock button { padding:9px 6px; } .divider { margin:0 1px; } .hint span { display:none; } .selection-bar { right:12px; bottom:130px; } }
 @media(max-width:340px) { .dock { flex-wrap:wrap; justify-content:flex-end; } .dock .brand-mark,.dock .divider { display:none; } .dock button { padding:7px 5px; } .panel { bottom:96px; max-height:calc(100dvh - 120px); } }
 @media(prefers-reduced-motion:reduce) { *,*:before,*:after { transition:none !important; animation:none !important; scroll-behavior:auto !important; } }
-`
+`;

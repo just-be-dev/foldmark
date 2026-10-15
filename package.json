@@ -2,23 +2,15 @@
   "name": "foldmark",
   "version": "0.1.0",
   "description": "Visual feedback for Foldkit applications and coding agents",
-  "type": "module",
   "license": "MIT",
-  "engines": {
-    "node": ">=22.19.0"
+  "bin": {
+    "foldmark-server": "./dist/server.js"
   },
   "files": [
     "dist",
     "docs"
   ],
-  "bin": {
-    "foldmark-server": "./dist/server.js"
-  },
-  "pi": {
-    "extensions": [
-      "./dist/pi.js"
-    ]
-  },
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/types/src/index.d.ts",
@@ -51,37 +43,16 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "prepare": "effect-tsgo patch",
+    "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "test:consumer": "node scripts/test-consumer.mjs",
-    "feedback": "tsx server/cli.ts",
+    "test:consumer": "bun scripts/test-consumer.mjs",
     "build": "vite build && vite build --config vite.node.config.ts && tsc -p tsconfig.build.json",
     "build:demo": "vite build --config vite.demo.config.ts",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
-  "peerDependencies": {
-    "@effect/platform-browser": "4.0.0",
-    "effect": "4.0.0",
-    "foldkit": "0.165.0"
-  },
-  "devDependencies": {
-    "@earendil-works/pi-coding-agent": "1.1.0",
-    "@effect/language-service": "0.87.3",
-    "@effect/platform-browser": "4.0.0",
-    "@effect/tsgo": "0.48.0",
-    "@foldkit/vite-plugin": "0.26.0",
-    "@modelcontextprotocol/client": "2.3.1",
-    "@playwright/test": "1.63.0",
-    "@types/node": "26.6.4",
-    "effect": "4.0.0",
-    "foldkit": "0.165.0",
-    "prettier": "3.9.9",
-    "tsx": "4.23.15",
-    "typescript": "7.0.2",
-    "vite": "8.3.2",
-    "vitest": "5.0.3"
+    "feedback": "bun server/cli.ts",
+    "prepare": "effect-tsgo patch"
   },
   "dependencies": {
     "@babel/parser": "8.0.7",
@@ -89,5 +60,39 @@
     "@modelcontextprotocol/server": "2.3.1",
     "magic-string": "1.4.3",
     "zod": "4.2.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.1.0",
+    "@effect/language-service": "0.87.3",
+    "@effect/platform-browser": "4.0.0",
+    "@effect/tsgo": "0.48.0",
+    "@effect/vitest": "4.0.0",
+    "@foldkit/oxlint-plugin": "0.15.3",
+    "@foldkit/vite-plugin": "0.26.0",
+    "@modelcontextprotocol/client": "2.3.1",
+    "@mpsuesser/oxlint-plugin-effect": "0.6.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.4",
+    "effect": "4.0.0",
+    "foldkit": "0.165.0",
+    "happy-dom": "21.0.1",
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
+  },
+  "peerDependencies": {
+    "@effect/platform-browser": "4.0.0",
+    "effect": "4.0.0",
+    "foldkit": "0.165.0"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "pi": {
+    "extensions": [
+      "./dist/pi.js"
+    ]
   }
 }

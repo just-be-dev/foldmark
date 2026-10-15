@@ -29,15 +29,15 @@ Cross-origin iframe contents and closed shadow roots cannot be traversed. Frame 
 A host can supply an explicit screenshot provider for other browsers or an existing screenshot integration:
 
 ```ts
-import { mountFoldmark, type ScreenshotProvider } from 'foldmark'
+import { mountFoldmark, type ScreenshotProvider } from "foldmark";
 
 const screenshotProvider: ScreenshotProvider = async ({ bounds, masks, targets, signal }) => {
   // Use your trusted host screenshot facility. Respect signal and return a real raster image
   // cropped to bounds (mounting-document coordinates), not a fabricated DOM approximation.
-  return myScreenshotFacility.capture({ bounds, masks, targets, signal })
-}
+  return myScreenshotFacility.capture({ bounds, masks, targets, signal });
+};
 
-const feedback = mountFoldmark({ screenshotProvider })
+const feedback = mountFoldmark({ screenshotProvider });
 ```
 
 Providers are host-owned integrations; Foldmark does not contact a screenshot service by default. Their raster-only data URLs are checked, decoded, resized to a maximum 1280-pixel side, and compressed to at most 700,000 data-URL characters. Large/invalid images fail visibly without discarding the note. Only the visible intersection of the selection and the mounting viewport is captured. Every selected element is re-resolved immediately before capture; detached/hidden selections are rejected rather than screenshotting stale coordinates. Areas deliberately retain their fixed coordinates.
@@ -60,7 +60,7 @@ mountFoldmark({
     ...captured,
     source: await resolveOriginalLocation(element, captured.source),
   }),
-})
+});
 ```
 
 A result updates only the matching live draft revision. Failures retain the captured hints with a visible notice. The default widget does not fetch source files/maps or capture the host application's Model state.
@@ -76,11 +76,11 @@ This does not stop application JavaScript, timers, canvas/WebGL drawing, animate
 ```ts
 mountFoldmark({
   feedback: {
-    endpoint: 'http://127.0.0.1:4781',
+    endpoint: "http://127.0.0.1:4781",
     token: pairedToken,
-    projectId: 'my-app',
+    projectId: "my-app",
   },
-})
+});
 ```
 
 Pairing configuration is memory-only; it is never included in local note persistence or reports. Constructing/mounting a paired client performs **no network I/O**. Only **Send to agent** submits the current route's open notes, including explicitly attached images. Failed submissions remain local and can be retried with the same idempotency ID. Status polling starts after a successful explicit submission and stops after its requests reach a terminal status or the widget is disposed. Concurrent submissions and delayed status snapshots merge by request revision instead of erasing or regressing newer work. A failed status read retains the last known state and retries visibly; it does not pretend the agent has finished.

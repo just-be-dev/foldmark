@@ -1,19 +1,18 @@
 # Verification and release checks
 
-Use Node.js **22.19.0 or later**. CI pins Node 24.13.0 and the Playwright 1.63.0
+`mise.toml` pins Bun and Node; `mise install` installs both and the dependencies
+locked in `bun.lock`. CI uses the same mise setup inside the Playwright 1.63.0
 Ubuntu Noble image; keep that image aligned with the exact `@playwright/test`
-version in `package.json`.
+version in `package.json`. The published package targets Node.js 22.19.0 or later.
 
 ```sh
-npm ci
-npx playwright install chromium firefox webkit
-npm run typecheck
-npm test
-npm run build
-npm run build:demo
-npm run test:consumer
-npm run test:browser
-npm run format:check
+mise trust && mise install
+mise run test:browser:install
+mise run check          # typecheck, lint, unit tests, format:check
+mise run build
+mise run build:demo
+mise run test:consumer
+mise run test:browser
 ```
 
 A passing local command is not evidence of a published package, deployed service,
@@ -22,12 +21,12 @@ WebKit; these are the Playwright engines, not every shipping browser version.
 
 ## Packaged consumer
 
-`npm run test:consumer` must run **after the library build**. It:
+`mise run test:consumer` must run **after the library build**. It:
 
-- Packs the real npm tarball without running package lifecycle scripts again.
+- Packs the real package tarball with `bun pm pack`, without running lifecycle scripts again.
 - Verifies every declared ESM/declaration export target exists in the tarball.
 - Installs that tarball, exact Foldkit/Effect peers, and the pinned test toolchain
-  into an independent temporary app. It does not use `npm link`, workspace source
+  into an independent temporary app. It does not use `bun link`, workspace source
   imports, or the development checkout's `node_modules` for the consumer.
 - Typechecks the public root interface and every entrypoint advertising types,
   without `skipLibCheck`.
@@ -48,11 +47,11 @@ Chromium runs production and development smoke by default. Check both modes in
 all three engines with:
 
 ```sh
-FOLDMARK_CONSUMER_BROWSERS=chromium,firefox,webkit npm run test:consumer
+FOLDMARK_CONSUMER_BROWSERS=chromium,firefox,webkit mise run test:consumer
 ```
 
 This smoke test installs dependencies in the temporary app and needs npm registry
-access or a populated npm cache. Installs skip lifecycle scripts and never change
+access or a populated Bun cache. Installs skip lifecycle scripts and never change
 the repository lockfile. Each subprocess has a three-minute timeout; failures,
 interruptions, and successful runs clean the temporary app and child processes.
 For diagnosis only, `FOLDMARK_KEEP_CONSUMER=1` retains the temporary directory and
@@ -61,13 +60,13 @@ prints its path. The fixture's TypeScript files end in `.fixture` so root
 
 ## Browser workflows
 
-`npm run test:browser` runs every workflow in Chromium, Firefox, and WebKit.
+`mise run test:browser` runs every workflow in Chromium, Firefox, and WebKit.
 Contexts are isolated between tests. The Vite server binds only to loopback and
 refuses a busy port rather than reusing a possibly unrelated development server.
 If a concurrent test run owns the default port:
 
 ```sh
-FOLDMARK_TEST_PORT=5186 npm run test:browser
+FOLDMARK_TEST_PORT=5186 mise run test:browser
 ```
 
 The clipboard workflow replaces the clipboard interface with a deterministic
@@ -78,7 +77,7 @@ and the UI's success/failure behavior. This is not a native OS clipboard test.
 Failure screenshots and retained traces go to Playwright's per-test output paths
 under `test-results/<port>/`, not shared `/tmp` filenames. CI HTML reports use
 `playwright-report/<port>/`. Distinct ports therefore isolate both servers and
-artifacts for concurrent runs. Inspect a trace with `npx playwright show-trace`.
+artifacts for concurrent runs. Inspect a trace with `bunx playwright show-trace`.
 
 ## Visual regression baselines
 
@@ -94,7 +93,7 @@ Generate baselines **only after the intended widget layout is stable**, inspect
 the resulting desktop/mobile images, and commit the reviewed PNG files:
 
 ```sh
-npx playwright test tests/browser/workflow.spec.ts \
+bunx playwright test tests/browser/workflow.spec.ts \
   --grep 'mobile layout|desktop visual' --update-snapshots
 ```
 
@@ -102,16 +101,16 @@ Linux baselines must be generated in the same pinned Playwright image as CI,
 not copied or renamed from macOS images. Docker reproduction is available:
 
 ```sh
-node scripts/test-linux.mjs tests/browser/workflow.spec.ts \
+mise run test:linux -- tests/browser/workflow.spec.ts \
   --grep 'mobile layout|desktop visual' --update-snapshots
 # Re-run without --update-snapshots to prove the new images are stable:
-node scripts/test-linux.mjs tests/browser/workflow.spec.ts \
+mise run test:linux -- tests/browser/workflow.spec.ts \
   --grep 'mobile layout|desktop visual'
 ```
 
 The helper uses Linux x86_64 to match the Ubuntu CI runner, including on an ARM
 Mac. It mounts this checkout read-only, installs Linux dependencies into an
-anonymous container workspace, and mounts only the snapshot and ignored test
+anonymous container workspace with the Bun version pinned in `mise.toml`, and mounts only the snapshot and ignored test
 output directories writable. It removes the container and workspace on success,
 failure, interruption, or its twelve-minute timeout. Docker must be running and
 may need to download the Playwright image. Diagnostic outputs are retained in
@@ -125,7 +124,7 @@ change is intended first.
 ## CI
 
 `.github/workflows/ci.yml` uses read-only repository permissions, cancels superseded
-runs, and runs install, typecheck, unit tests, both builds, all-engine packaged
+runs, and installs tools and dependencies with mise, and runs typecheck, lint, unit tests, both builds, all-engine packaged
 consumer smoke in production and development, all-engine browser/visual
 regressions, and formatting. Browser
 failure evidence is uploaded for seven days. The workflow does not publish or

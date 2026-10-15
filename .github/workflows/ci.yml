@@ -19,24 +19,25 @@ jobs:
     container: mcr.microsoft.com/playwright:v1.63.0-noble
     timeout-minutes: 20
     env:
-      CI: 'true'
+      CI: "true"
       FOLDMARK_CONSUMER_BROWSERS: chromium,firefox,webkit
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
-          node-version: 24.13.0
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - run: npm run build:demo
+          install: false
+      # mise.toml pins Bun and Node; its postinstall hook runs `bun install --frozen-lockfile`.
+      - run: mise trust && mise install
+      - run: mise run typecheck
+      - run: mise run lint
+      - run: mise run test
+      - run: mise run build
+      - run: mise run build:demo
       - name: Installed tarball consumer (SSR, types, production browsers)
-        run: node scripts/test-consumer.mjs
+        run: mise run test:consumer
       - name: Chromium, Firefox, WebKit workflows and visual regressions
-        run: npm run test:browser
-      - run: npm run format:check
+        run: mise run test:browser
+      - run: mise run format:check
       - name: Keep failure evidence
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

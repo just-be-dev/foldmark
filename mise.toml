@@ -1,0 +1,68 @@
+[settings]
+experimental = true
+pin = true
+
+[hooks]
+postinstall = "bun install --frozen-lockfile"
+
+[env]
+_.path = "node_modules/.bin"
+
+[tasks.check]
+description = "Typecheck, lint, test, and check formatting"
+run = "bun run typecheck && bun run lint && bun run test && bun run format:check"
+
+[tasks.typecheck]
+run = "bun run typecheck"
+
+[tasks.lint]
+run = "bun run lint"
+
+[tasks.format]
+run = "bun run format"
+
+[tasks."format:check"]
+run = "bun run format:check"
+
+[tasks.test]
+run = "bun run test"
+
+[tasks."test:browser"]
+description = "Run Playwright workflows in Chromium, Firefox, and WebKit"
+run = "bun run test:browser"
+
+[tasks."test:browser:install"]
+description = "Install the Playwright browser builds"
+run = "playwright install chromium firefox webkit"
+
+[tasks."test:consumer"]
+description = "Pack the library and smoke-test it from an isolated consumer (run after build)"
+run = "bun run test:consumer"
+
+[tasks."test:linux"]
+description = "Run Playwright inside the pinned Linux CI image (Docker)"
+run = "bun scripts/test-linux.mjs"
+
+[tasks.build]
+run = "bun run build"
+
+[tasks."build:demo"]
+run = "bun run build:demo"
+
+[tasks.dev]
+run = "bun run dev"
+
+[tasks.feedback]
+description = "Start the local feedback server"
+run = "bun run feedback"
+
+[tasks.prepare]
+run = "bun run prepare"
+
+[tasks."effect-solutions"]
+description = "Browse Effect Solutions guides, e.g. `list` or `show <topic>`"
+run = "bunx effect-solutions"
+
+[tools]
+bun = "1.4.3"
+node = "24.13.0"

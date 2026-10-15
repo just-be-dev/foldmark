@@ -8,12 +8,16 @@ Before changing Foldkit APIs, inspect the pinned package's declarations in `node
 
 ## Effect best practices
 
-Always consult effect-solutions before writing Effect code. Resolve it through `effect-solutions`, `mise exec -- effect-solutions`, or `npx --yes effect-solutions`.
+Always consult effect-solutions before writing Effect code. Run it with `mise run effect-solutions`.
 
-1. Run `effect-solutions list`.
-2. Run `effect-solutions show <topic>...` for relevant patterns.
+1. Run `mise run effect-solutions list`.
+2. Run `mise run effect-solutions show <topic>...` for relevant patterns.
 3. Check the installed Effect 4 source for current APIs; older guide examples may need adaptation.
 
-Use bare imports such as `import * as Effect from 'effect/Effect'`. Prefer Schema.Struct records and named Commands. Do not silence errors with `as any` or non-null assertions.
+Use bare imports such as `import * as Effect from "effect/Effect"`. Prefer Schema.Struct records and named Commands. Do not silence errors with `as any` or non-null assertions.
 
-Run `npm run typecheck`, `npm test`, and `npm run build` for library changes. Run `npm run test:browser` for capture, lifecycle, or UI behavior changes. Inspect screenshots when changing layout. Do not commit generated builds, browser traces, or node_modules.
+## Tooling
+
+mise pins Bun and Node; `mise trust && mise install` sets up everything and installs from `bun.lock`. Use Bun for packages and scripts (`bun add`, `bunx`), never npm. Oxlint lints with the Effect and Foldkit plugins (`oxlint.config.ts`), and Oxfmt formats. Unit tests use Vitest; write Effect tests with `@effect/vitest` (`it.effect`). Lint runs clean; fix findings rather than adding overrides. Messages live in `src/message.ts`, absent Model values use `Option` with a `maybe*` name, and time, randomness, and UUIDs come from Effect (`Clock`, `Crypto.Crypto`) inside Command `execute`.
+
+Run `mise run check` (typecheck, lint, test, format:check) and `mise run build` for library changes. Run `mise run test:browser` for capture, lifecycle, or UI behavior changes. Inspect screenshots when changing layout. Do not commit generated builds, browser traces, or node_modules.

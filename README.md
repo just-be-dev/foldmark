@@ -6,11 +6,11 @@ Foldmark is an independent implementation inspired by the interaction concepts i
 
 ## Run the playground
 
-Requires Node.js 22.19+.
+Development uses [mise](https://mise.jdx.dev) and Bun. `mise install` pins Bun and Node and installs the locked dependencies.
 
 ```sh
-npm ci
-npm run dev
+mise trust && mise install
+mise run dev
 ```
 
 Open the URL Vite prints. The Fieldwork workspace is a real Foldkit app: tasks and navigation work when Inspect is off. Turn on Inspect in the floating toolbar, click an element, and save a note. Open Export to copy Markdown or download JSON.
@@ -20,11 +20,13 @@ Open the URL Vite prints. The Fieldwork workspace is a real Foldkit app: tasks a
 This package is local and has not been published to npm. Build and install its tarball in your app:
 
 ```sh
-npm run build
-npm pack
+mise run build
+bun pm pack
 # In the consuming app:
-npm install -D /absolute/path/to/foldmark/foldmark-0.1.0.tgz
+bun add -D /absolute/path/to/foldmark/foldmark-0.1.0.tgz
 ```
+
+The published entry points and the `foldmark-server` CLI run on Node.js 22.19+.
 
 The tested peer versions are `foldkit@0.165.0`, `effect@4.0.0`, and `@effect/platform-browser@4.0.0`. Foldkit currently pins those exact Effect peer versions, so this project follows them.
 
@@ -32,9 +34,9 @@ Mount once from your browser entry, after the document body exists:
 
 ```ts
 if (import.meta.env.DEV) {
-  const { mountFoldmark } = await import('foldmark')
-  const feedback = mountFoldmark()
-  import.meta.hot?.dispose(() => feedback.dispose())
+  const { mountFoldmark } = await import("foldmark");
+  const feedback = mountFoldmark();
+  import.meta.hot?.dispose(() => feedback.dispose());
 }
 ```
 
@@ -45,20 +47,20 @@ The widget uses `Runtime.makeElement`, `Runtime.embed`, Schema-validated ports, 
 DOM selectors work without instrumentation. For precise source hints, annotate an element in your view:
 
 ```ts
-import { annotate } from 'foldmark'
+import { annotate } from "foldmark";
 
 h.button(
   [
-    h.Class('primary'),
+    h.Class("primary"),
     ...annotate(h, {
-      source: 'src/checkout/view.ts:42',
-      modelPath: 'checkout.address',
-      message: 'ClickedSubmitOrder',
+      source: "src/checkout/view.ts:42",
+      modelPath: "checkout.address",
+      message: "ClickedSubmitOrder",
     }),
     h.OnClick(Message.ClickedSubmitOrder()),
   ],
-  ['Place order'],
-)
+  ["Place order"],
+);
 ```
 
 Hints are inherited from the nearest ancestor carrying each attribute. A `context(element)` callback can supply hints for applications with existing instrumentation. None of these mechanisms snapshots your Model.
@@ -66,13 +68,13 @@ Hints are inherited from the nearest ancestor carrying each attribute. A `contex
 For automatic development-time source locations, opt in to the Vite plugin for application files:
 
 ```ts
-import { defineConfig } from 'vite'
-import { foldmarkSourceHints } from 'foldmark/vite'
+import { defineConfig } from "vite";
+import { foldmarkSourceHints } from "foldmark/vite";
 
 export default defineConfig({
-  plugins: [foldmarkSourceHints({ include: 'src' })],
-  optimizeDeps: { include: ['effect'] },
-})
+  plugins: [foldmarkSourceHints({ include: "src" })],
+  optimizeDeps: { include: ["effect"] },
+});
 ```
 
 With the pinned Foldkit Vite plugin, include the `effect` barrel in dependency optimization even when your code uses `effect/*` imports. This keeps Foldkit and Foldmark on one optimized Schema instance; otherwise development port validation can fail. The demo and packaged-consumer checks cover this configuration.
@@ -82,14 +84,14 @@ The plugin instruments supported Foldkit HTML-builder calls and leaves productio
 ```ts
 const feedback = mountFoldmark({
   enabled: true,
-  storageKey: 'my-app:foldmark:v1',
+  storageKey: "my-app:foldmark:v1",
   // storage: false, // memory only; defaults to localStorage
-  context: (element) => ({ source: element.getAttribute('data-source') ?? '' }),
+  context: (element) => ({ source: element.getAttribute("data-source") ?? "" }),
   onChange: (annotations) => console.log(`${annotations.length} annotations`),
-})
+});
 
-feedback.getAnnotations() // across every captured page in this session
-feedback.dispose()
+feedback.getAnnotations(); // across every captured page in this session
+feedback.dispose();
 ```
 
 `onChange` runs after successful persistence (or immediately in memory-only mode). Use it for a host-owned integration. Saving a note does not transmit it.
@@ -99,7 +101,7 @@ feedback.dispose()
 Run a local companion for one project. Pair only the exact origin Vite prints:
 
 ```sh
-npm run feedback -- --project my-app --origin http://localhost:5173
+mise run feedback -- --project my-app --origin http://localhost:5173
 # Add --mcp when the agent host starts this process as an MCP stdio server.
 ```
 
@@ -108,11 +110,11 @@ The companion prints its loopback endpoint and the path to a private pairing-tok
 ```ts
 mountFoldmark({
   feedback: {
-    endpoint: 'http://127.0.0.1:5177',
-    projectId: 'my-app',
+    endpoint: "http://127.0.0.1:5177",
+    projectId: "my-app",
     token: localPairingToken,
   },
-})
+});
 ```
 
 Use **Send to agent** to submit feedback. The server persists requests, exposes their status, and grants an exclusive renewable lease before an agent acts. Completion and failure remain visible; a missed notification does not discard work. The browser client is also available separately from `foldmark/transport`.
@@ -155,18 +157,16 @@ There are no implicit feedback uploads. Pairing the widget does not submit notes
 ## Development
 
 ```sh
-npm run typecheck
-npm test
-npm run test:browser
-npm run build
-npm run build:demo
-npm run test:consumer
-npm run format:check
+mise run check          # typecheck, lint, test, format:check
+mise run build
+mise run build:demo
+mise run test:consumer  # after build
+mise run test:browser
 ```
 
-Install browser engines with `npx playwright install chromium firefox webkit` (on Linux CI, add `--with-deps`). Browser tests cover real UI workflows and visual baselines across Chromium, Firefox, and WebKit. The consumer smoke test installs the built tarball into an isolated application and checks its declarations, server-safe imports, and browser mount/dispose. See [testing](docs/testing.md) for baseline updates and CI details.
+`mise tasks` lists every task. Install browser engines with `mise run test:browser:install` (on Linux, use `bunx playwright install --with-deps chromium firefox webkit`). Browser tests cover real UI workflows and visual baselines across Chromium, Firefox, and WebKit. The consumer smoke test installs the built tarball into an isolated application and checks its declarations, server-safe imports, and browser mount/dispose. See [testing](docs/testing.md) for baseline updates and CI details.
 
-TypeScript 7.0.2 ships its native compiler under the `tsc` command. The `prepare` hook patches it with `@effect/tsgo`; the Effect language service is configured in `tsconfig.json`. `package-lock.json` pins the installed toolchain.
+TypeScript 7.0.2 ships its native compiler under the `tsc` command. The `prepare` hook patches it with `@effect/tsgo`; the Effect language service is configured in `tsconfig.json`. `bun.lock` pins the installed toolchain. Oxlint (with the Effect and Foldkit plugins, configured in `oxlint.config.ts`) lints, Oxfmt formats, and Vitest runs unit tests with `@effect/vitest` for Effect-based tests.
 
 ## Structure
 

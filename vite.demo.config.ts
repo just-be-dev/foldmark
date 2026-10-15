@@ -1,2 +1,2 @@
-import { defineConfig } from 'vite'
-export default defineConfig({ build: { outDir: 'demo-dist' } })
+import { defineConfig } from "vite";
+export default defineConfig({ build: { outDir: "demo-dist" } });

@@ -6,12 +6,12 @@ Foldmark does not infer a source file from an arbitrary DOM node. There must be 
 
 ```ts
 // vite.config.ts
-import { defineConfig } from 'vite'
-import { foldmarkSourceHints } from 'foldmark/vite'
+import { defineConfig } from "vite";
+import { foldmarkSourceHints } from "foldmark/vite";
 
 export default defineConfig({
-  plugins: [foldmarkSourceHints({ include: ['src/'] })],
-})
+  plugins: [foldmarkSourceHints({ include: ["src/"] })],
+});
 ```
 
 This source-hints plugin is independent of the optional `@foldkit/vite-plugin`. When also using Foldkit's official plugin, use its full `foldkit(...)` configuration and add `optimizeDeps: { include: ['effect'] }` to Vite's configuration. With the pinned toolchain, this keeps Effect's barrel and subpath imports on one optimized module identity and avoids duplicate Schema instances. See the repository's `vite.config.ts` and README for the complete tested setup.
@@ -21,15 +21,15 @@ An explicit `include` is required. Strings select a root-relative file or direct
 The plugin recognizes element calls on variables/parameters annotated with the `HtmlBuilder` type imported from `foldkit/html`, including renamed imports and namespace imports. It also recognizes imported `inertHtml` aliases. For deliberately untyped view helpers, explicitly trust their identifier names:
 
 ```ts
-foldmarkSourceHints({ include: 'src/views', builderNames: ['h', 'ui'] })
+foldmarkSourceHints({ include: "src/views", builderNames: ["h", "ui"] });
 ```
 
 For example, this view:
 
 ```ts
-import type { HtmlBuilder } from 'foldkit/html'
+import type { HtmlBuilder } from "foldkit/html";
 
-const view = (h: HtmlBuilder<Message>) => h.button([h.OnClick(Message.ClickedSave())], ['Save'])
+const view = (h: HtmlBuilder<Message>) => h.button([h.OnClick(Message.ClickedSave())], ["Save"]);
 ```
 
 receives a development-only `data-foldmark-source` attribute containing the original call's file, line, and column (for example, `src/view.ts:3:41`). Locations are one-based. Foldmark's regular capture then includes that location, without a runtime source-map request.
@@ -51,27 +51,27 @@ The transform parses JavaScript/TypeScript/JSX instead of replacing text pattern
 For a host with its own generated-location instrumentation, import the separate browser-safe helper:
 
 ```ts
-import { createSourceResolver } from 'foldmark/source-map'
-import { mountFoldmark } from 'foldmark'
+import { createSourceResolver } from "foldmark/source-map";
+import { mountFoldmark } from "foldmark";
 
 // Maps should come from a build manifest or another host-controlled source.
 // The resolver never fetches URLs or reads files by itself.
 const sourceResolver = createSourceResolver({
   loadSourceMap: async (generatedSourceUrl, signal) => {
-    const entry = knownBuildMaps.get(generatedSourceUrl)
-    if (!entry || signal.aborted) return null
-    return { map: entry.json, mapUrl: entry.absoluteMapUrl }
+    const entry = knownBuildMaps.get(generatedSourceUrl);
+    if (!entry || signal.aborted) return null;
+    return { map: entry.json, mapUrl: entry.absoluteMapUrl };
   },
-})
+});
 
-const feedback = mountFoldmark({ sourceResolver })
+const feedback = mountFoldmark({ sourceResolver });
 
 // HMR invalidation: discard cached maps and pending resolution results.
-sourceResolver.clearCache()
+sourceResolver.clearCache();
 
 // Host teardown: the resolver can be shared, so its owner disposes it separately.
-feedback.dispose()
-sourceResolver.dispose()
+feedback.dispose();
+sourceResolver.dispose();
 ```
 
 `loadSourceMap` is the only I/O seam. It returns `{ map, mapUrl? }` or `null`, synchronously or asynchronously. `map` must be a version-3 **encoded** map object or its JSON string; indexed/decoded maps are not currently accepted. `mapUrl` is the map's absolute URL/path, used to resolve relative original source names; it defaults to the generated source URL. The optional second argument is an `AbortSignal` aborted on `dispose()`. A network-backed loader must explicitly allowlist known generated resources, restrict response sizes, and pass the signal to its own request. Never turn a DOM-provided URL into an unrestricted file read or authenticated fetch.
