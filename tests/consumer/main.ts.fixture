@@ -1,0 +1,37 @@
+import {
+  mountFoldmark,
+  toJson,
+  toMarkdown,
+  type FoldmarkHandle,
+  type FoldmarkOptions,
+} from 'foldmark'
+
+declare global {
+  interface Window {
+    foldmarkConsumer: {
+      handle: FoldmarkHandle
+      remount: () => void
+      mountDuplicate: () => void
+    }
+  }
+}
+
+const options: FoldmarkOptions = { storage: false }
+const handle = mountFoldmark(options)
+if (toMarkdown(handle.getAnnotations()).includes('undefined'))
+  throw new Error('Invalid empty Markdown export')
+if (JSON.parse(toJson(handle.getAnnotations())).annotations.length !== 0)
+  throw new Error('A fresh packaged mount unexpectedly has annotations')
+window.foldmarkConsumer = {
+  handle,
+  remount: () => {
+    window.foldmarkConsumer.handle = mountFoldmark(options)
+  },
+  mountDuplicate: () => {
+    mountFoldmark(options)
+  },
+}
+const status = document.querySelector('#consumer-status')
+if (!status) throw new Error('Missing consumer status fixture')
+status.textContent = 'Ready'
+status.setAttribute('data-result', 'ready')

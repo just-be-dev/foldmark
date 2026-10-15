@@ -4,13 +4,48 @@
   "description": "Visual feedback for Foldkit applications and coding agents",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "files": [
-    "dist"
+    "dist",
+    "docs"
   ],
+  "bin": {
+    "foldmark-server": "./dist/server.js"
+  },
+  "pi": {
+    "extensions": [
+      "./dist/pi.js"
+    ]
+  },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/types/src/index.d.ts",
       "import": "./dist/foldmark.js"
+    },
+    "./transport": {
+      "types": "./dist/types/src/transport.d.ts",
+      "import": "./dist/transport.js"
+    },
+    "./feedback": {
+      "types": "./dist/types/src/feedback.d.ts",
+      "import": "./dist/feedback.js"
+    },
+    "./source-map": {
+      "types": "./dist/types/src/source-map.d.ts",
+      "import": "./dist/source-map.js"
+    },
+    "./vite": {
+      "types": "./dist/types/src/vite.d.ts",
+      "import": "./dist/vite.js"
+    },
+    "./server": {
+      "types": "./dist/types/server/index.d.ts",
+      "import": "./dist/server-api.js"
+    },
+    "./pi": {
+      "import": "./dist/pi.js"
     }
   },
   "scripts": {
@@ -19,7 +54,9 @@
     "prepare": "effect-tsgo patch",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "build": "vite build && tsc -p tsconfig.build.json",
+    "test:consumer": "node scripts/test-consumer.mjs",
+    "feedback": "tsx server/cli.ts",
+    "build": "vite build && vite build --config vite.node.config.ts && tsc -p tsconfig.build.json",
     "build:demo": "vite build --config vite.demo.config.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -30,16 +67,27 @@
     "foldkit": "0.165.0"
   },
   "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.1.0",
     "@effect/language-service": "0.87.3",
     "@effect/platform-browser": "4.0.0",
     "@effect/tsgo": "0.48.0",
+    "@foldkit/vite-plugin": "0.26.0",
+    "@modelcontextprotocol/client": "2.3.1",
     "@playwright/test": "1.63.0",
     "@types/node": "26.6.4",
     "effect": "4.0.0",
     "foldkit": "0.165.0",
     "prettier": "3.9.9",
+    "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vite": "8.3.2",
     "vitest": "5.0.3"
+  },
+  "dependencies": {
+    "@babel/parser": "8.0.7",
+    "@jridgewell/trace-mapping": "0.3.31",
+    "@modelcontextprotocol/server": "2.3.1",
+    "magic-string": "1.4.3",
+    "zod": "4.2.0"
   }
 }

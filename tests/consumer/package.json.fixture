@@ -1,0 +1,11 @@
+{
+  "name": "foldmark-packed-consumer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "test:ssr": "node ssr.mjs",
+    "test:browser": "node browser.mjs"
+  }
+}

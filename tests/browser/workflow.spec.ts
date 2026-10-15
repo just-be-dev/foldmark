@@ -15,12 +15,14 @@ const addNote = async (page: Page, note = 'Give this control more breathing room
   await expect(page.getByText(note, { exact: true })).toBeVisible()
 }
 test.beforeEach(async ({ page }) => {
+  // External font availability must not change layout or screenshot baselines.
+  await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort())
   await page.goto('/')
+  await page.evaluate(() => document.fonts.ready)
 })
 
 test('captures without triggering host, persists, edits, resolves and exports', async ({
   page,
-  context,
 }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
@@ -37,7 +39,20 @@ test('captures without triggering host, persists, edits, resolves and exports', 
   await expect(report).toHaveValue(/Model path: `completed`/)
   await expect(report).toHaveValue(/Message: `ClickedTask`/)
   await expect(report).toHaveValue(/Make the hit area larger/)
-  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  // Firefox/WebKit do not expose Chromium's clipboard permission names. Exercise
+  // the clipboard boundary deterministically in every engine instead.
+  await page.evaluate(() => {
+    let copied = ''
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: async (text: string) => {
+          copied = text
+        },
+        readText: async () => copied,
+      },
+      configurable: true,
+    })
+  })
   await page.getByRole('button', { name: 'Copy report ↗' }).click()
   await expect(page.getByRole('status')).toHaveText('Copied. Ready for your agent.')
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
@@ -178,10 +193,10 @@ test('mobile layout keeps toolbar and composer in the viewport', async ({ page }
     expect(panel.x).toBeGreaterThanOrEqual(0)
     expect(panel.x + panel.width).toBeLessThanOrEqual(390)
   }
-  await page.screenshot({ path: '/private/tmp/foldmark-mobile.png', fullPage: true })
+  await expect(page).toHaveScreenshot('foldmark-mobile.png', { fullPage: true })
 })
 
 test('desktop visual', async ({ page }) => {
   await expect(page.getByRole('toolbar')).toBeVisible()
-  await page.screenshot({ path: '/private/tmp/foldmark-desktop.png', fullPage: true })
+  await expect(page).toHaveScreenshot('foldmark-desktop.png', { fullPage: true })
 })

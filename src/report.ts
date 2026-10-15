@@ -1,6 +1,10 @@
-import type { Annotation } from './model'
+import { annotationTargets, type Annotation, type Target } from './model'
 
 const inline = (value: string) => '`' + value.replace(/`/g, '\\`').replace(/\s+/g, ' ') + '`'
+const address = (target: Target) =>
+  [...(target.path ?? []).map((part) => `${part.kind}(${part.selector})`), target.selector].join(
+    ' → ',
+  )
 
 /** Feedback is user-authored data; agents should review it before acting. */
 export function toMarkdown(annotations: readonly Annotation[]): string {
@@ -18,10 +22,23 @@ export function toMarkdown(annotations: readonly Annotation[]): string {
       `## ${index + 1}. ${t.tag} — ${a.resolved ? 'resolved' : 'open'}`,
       '',
       `- Page: ${inline(t.page)}`,
-      `- Selector: ${inline(t.selector)}`,
+      `- Selector: ${inline(address(t))}`,
+      `- Captured: ${inline(a.createdAt)}`,
       `- Viewport: ${t.viewport}`,
       `- Document bounds: x=${t.rect.x}, y=${t.rect.y}, ${t.rect.width}×${t.rect.height}`,
     )
+    if (t.framePage) lines.push(`- Embedded page: ${inline(t.framePage)}`)
+    if (t.kind === 'area')
+      lines.push('- Selection kind: fixed document area (not an element selector)')
+    const selected = annotationTargets(a)
+    if (selected.length > 1) {
+      lines.push(`- Grouped selection: ${selected.length} elements`)
+      for (const [index, target] of selected.entries()) {
+        lines.push(
+          `  - ${index + 1}. ${inline(address(target))}${target.source ? ` · ${inline(target.source)}` : ''}`,
+        )
+      }
+    }
     if (t.source) lines.push(`- View source: ${inline(t.source)}`)
     if (t.modelPath) lines.push(`- Model path: ${inline(t.modelPath)}`)
     if (t.message) lines.push(`- Message: ${inline(t.message)}`)
@@ -35,6 +52,14 @@ export function toMarkdown(annotations: readonly Annotation[]): string {
       ...a.note.split('\n').map((line) => `> ${line}`),
       '',
     )
+    if (a.screenshot) {
+      lines.push(
+        `**Screenshot attachment** · ${a.screenshot.width}×${a.screenshot.height} · ${inline(a.screenshot.capturedAt)}`,
+        '',
+        `![Redacted screenshot attachment](${a.screenshot.dataUrl})`,
+        '',
+      )
+    }
   })
   return lines.join('\n')
 }

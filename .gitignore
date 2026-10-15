@@ -3,4 +3,5 @@ dist/
 demo-dist/
 test-results/
 playwright-report/
+.vitest/
 .DS_Store

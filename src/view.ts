@@ -1,5 +1,5 @@
 import type { HtmlBuilder } from 'foldkit/html'
-import { Message, type Model, openAnnotations, pageAnnotations } from './model'
+import { Message, type Model, type Rect, openAnnotations, pageAnnotations } from './model'
 import { toJson, toMarkdown } from './report'
 
 export function view(m: Model, h: HtmlBuilder<Message>) {
@@ -8,9 +8,30 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
       [h.Type('button'), h.Class(className), h.OnClick(message), h.Disabled(disabled)],
       [label],
     )
+  const option = (label: string, message: Message, selected: boolean) =>
+    h.button(
+      [
+        h.Type('button'),
+        h.Class(selected ? 'selected' : ''),
+        h.AriaPressed(String(selected)),
+        h.OnClick(message),
+      ],
+      [label],
+    )
   const open = openAnnotations(m)
   const all = pageAnnotations(m)
   const target = m.draft ?? m.hover
+  const box = (rect: Rect) => ({
+    left: `${rect.x - m.scrollX}px`,
+    top: `${rect.y - m.scrollY}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+  })
+  const highlight = (rect: Rect, label: string, className = '') =>
+    h.div(
+      [h.Class(`highlight ${className}`), h.AriaHidden(true), h.Style(box(rect))],
+      [h.span([h.Class('target-label')], [label.slice(0, 70)])],
+    )
   const header = (title: string, sub: string, close: Message = Message.ClickedClosePanel()) =>
     h.div(
       [h.Class('panel-heading')],
@@ -22,48 +43,94 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
         ),
       ],
     )
+  const feedback = m.feedback.filter((item) => item.page === m.page)
+  const send = () =>
+    button(
+      m.sending ? 'Sending…' : 'Send to agent',
+      Message.ClickedSend(),
+      'primary full',
+      m.sending || !open.length,
+    )
+  const feedbackStatus = () =>
+    h.div(
+      [
+        h.Class('feedback-status'),
+        h.Role('region'),
+        h.AriaLabel('Agent requests'),
+        h.AriaLive('polite'),
+      ],
+      feedback.length
+        ? feedback
+            .slice(-5)
+            .reverse()
+            .map((item) =>
+              h.div(
+                [h.Class(`request-status status-${item.status}`)],
+                [
+                  h.strong(
+                    [],
+                    [
+                      item.status === 'claimed'
+                        ? 'Agent working'
+                        : item.status[0]?.toUpperCase() + item.status.slice(1),
+                    ],
+                  ),
+                  h.code([], [item.id.slice(0, 12)]),
+                  ...(item.message ? [h.p([], [item.message])] : []),
+                ],
+              ),
+            )
+        : [
+            h.p(
+              [h.Class('muted')],
+              ['Nothing sent. Notes stay local until you choose Send to agent.'],
+            ),
+          ],
+    )
   return h.div(
-    [h.Class('foldmark')],
+    [h.Class('foldmark'), h.DataAttribute('theme', m.theme)],
     [
-      ...(target && m.active
-        ? [
-            h.div(
-              [
-                h.Class('highlight'),
-                h.AriaHidden(true),
-                h.Style({
-                  left: `${target.rect.x - m.scrollX}px`,
-                  top: `${target.rect.y - m.scrollY}px`,
-                  width: `${target.rect.width}px`,
-                  height: `${target.rect.height}px`,
-                }),
-              ],
-              [h.span([h.Class('target-label')], [target.selector.slice(0, 70)])],
-            ),
-          ]
-        : []),
+      ...(target && m.active ? [highlight(target.rect, target.selector)] : []),
       ...(m.active
-        ? open.map((a, i) =>
-            h.button(
-              [
-                h.Type('button'),
-                h.Class('pin'),
-                h.AriaLabel(`Edit annotation ${i + 1}`),
-                h.Title(a.note),
-                h.Style({
-                  left: `${a.target.rect.x - m.scrollX - 10}px`,
-                  top: `${a.target.rect.y - m.scrollY - 10}px`,
-                }),
-                h.OnClick(Message.ClickedEdit({ id: a.id })),
-              ],
-              [String(i + 1)],
-            ),
+        ? m.selection.map((selected, index) =>
+            highlight(selected.rect, `Selected ${index + 1}`, 'selection-highlight'),
           )
+        : []),
+      ...(m.active && m.area ? [highlight(m.area, 'Area selection', 'area-highlight')] : []),
+      ...(m.active
+        ? open.flatMap((a, i) => {
+            const pin = m.livePins.find((item) => item.id === a.id)
+            if (pin?.rect === null) return []
+            const rect = pin?.rect ?? a.target.rect
+            return [
+              h.button(
+                [
+                  h.Type('button'),
+                  h.Class(`pin${pin?.detached ? ' detached' : ''}`),
+                  h.AriaLabel(`Edit annotation ${i + 1}`),
+                  h.Title(
+                    pin?.detached ? `${a.note} · Some selected elements are detached` : a.note,
+                  ),
+                  h.Style({
+                    left: `${rect.x - m.scrollX - 10}px`,
+                    top: `${rect.y - m.scrollY - 10}px`,
+                  }),
+                  h.OnClick(Message.ClickedEdit({ id: a.id })),
+                ],
+                [String(i + 1)],
+              ),
+            ]
+          })
         : []),
       ...(m.draft
         ? [
             h.section(
-              [h.Class('panel composer'), h.Role('dialog'), h.AriaLabel('Annotate element')],
+              [
+                h.Class('panel composer'),
+                h.Role('dialog'),
+                h.AriaLabel('Annotate element'),
+                h.AriaBusy(m.screenshotState === 'capturing'),
+              ],
               [
                 header(
                   m.editingId ? 'Edit feedback' : 'Leave a mark',
@@ -73,8 +140,32 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
                 h.div(
                   [h.Class('target-context')],
                   [
-                    h.span([h.Class('eyebrow')], ['SELECTED ELEMENT']),
+                    h.span(
+                      [h.Class('eyebrow')],
+                      [
+                        m.draftTargets.length > 1
+                          ? `${m.draftTargets.length} SELECTED ELEMENTS`
+                          : m.draft.kind === 'area'
+                            ? 'SELECTED AREA'
+                            : 'SELECTED ELEMENT',
+                      ],
+                    ),
                     h.code([], [m.draft.selector]),
+                    ...(m.draftTargets.length > 1
+                      ? m.draftTargets.slice(1).map((selected) => h.code([], [selected.selector]))
+                      : []),
+                    ...(m.draft.path?.length
+                      ? [
+                          h.p(
+                            [h.Class('muted')],
+                            [
+                              m.draft.path
+                                .map((part) => `${part.kind}: ${part.selector}`)
+                                .join(' → '),
+                            ],
+                          ),
+                        ]
+                      : []),
                     ...(m.draft.source ? [h.p([h.Class('source')], [m.draft.source])] : []),
                     ...(m.draft.modelPath
                       ? [h.p([h.Class('muted')], [`Model · ${m.draft.modelPath}`])]
@@ -93,11 +184,50 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
                   h.OnInput((note) => Message.ChangedNote({ note })),
                   h.Attribute('maxlength', '4000'),
                 ]),
+                ...(m.draftScreenshot
+                  ? [
+                      h.div(
+                        [h.Class('screenshot-preview')],
+                        [
+                          h.img([
+                            h.Src(m.draftScreenshot.dataUrl),
+                            h.Alt('Redacted screenshot attachment'),
+                          ]),
+                          button(
+                            'Remove screenshot',
+                            Message.ClickedRemoveScreenshot(),
+                            'text-button',
+                          ),
+                        ],
+                      ),
+                    ]
+                  : []),
+                button(
+                  m.screenshotState === 'capturing'
+                    ? 'Capturing…'
+                    : m.draftScreenshot
+                      ? 'Replace screenshot'
+                      : 'Attach screenshot',
+                  Message.ClickedScreenshot(),
+                  'secondary full',
+                  m.screenshotState === 'capturing',
+                ),
+                h.p(
+                  [h.Class('muted screenshot-help')],
+                  [
+                    'Optional. Captures only the visible selection after consent; private regions, forms, and embedded frames are masked.',
+                  ],
+                ),
                 h.div(
                   [h.Class('row actions')],
                   [
                     h.span([h.Class('muted')], ['⌘ / Ctrl + Enter to save']),
-                    button('Save note ↗', Message.ClickedSave(), 'primary', !m.note.trim()),
+                    button(
+                      'Save note ↗',
+                      Message.ClickedSave(),
+                      'primary',
+                      !m.note.trim() || m.screenshotState === 'capturing',
+                    ),
                   ],
                 ),
               ],
@@ -126,8 +256,9 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
                   [
                     ...all
                       .filter((a) => m.showResolved || !a.resolved)
-                      .map((a, i) =>
-                        h.article(
+                      .map((a, i) => {
+                        const pin = m.livePins.find((item) => item.id === a.id)
+                        return h.article(
                           [h.Class(`note-card${a.resolved ? ' resolved' : ''}`)],
                           [
                             h.div(
@@ -138,8 +269,43 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
                               ],
                             ),
                             h.p([h.Class('note-text')], [a.note]),
+                            ...(a.targets?.length
+                              ? [
+                                  h.p(
+                                    [h.Class('muted')],
+                                    [`${a.targets.length} elements in this mark`],
+                                  ),
+                                ]
+                              : []),
+                            ...(a.target.kind === 'area'
+                              ? [
+                                  h.p(
+                                    [h.Class('muted')],
+                                    [
+                                      'Area coordinates are fixed to this document, not an element.',
+                                    ],
+                                  ),
+                                ]
+                              : []),
+                            ...(pin?.detached
+                              ? [
+                                  h.p(
+                                    [h.Class('detached-label')],
+                                    ['Target detached or no longer accessible'],
+                                  ),
+                                ]
+                              : []),
                             ...(a.target.source
                               ? [h.p([h.Class('source')], [a.target.source])]
+                              : []),
+                            ...(a.screenshot
+                              ? [
+                                  h.img([
+                                    h.Class('note-screenshot'),
+                                    h.Src(a.screenshot.dataUrl),
+                                    h.Alt('Redacted screenshot attachment'),
+                                  ]),
+                                ]
                               : []),
                             h.div(
                               [h.Class('note-actions')],
@@ -158,8 +324,8 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
                               ],
                             ),
                           ],
-                        ),
-                      ),
+                        )
+                      }),
                     ...(all.filter((a) => m.showResolved || !a.resolved).length === 0
                       ? [
                           h.div(
@@ -179,12 +345,8 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
                       : []),
                   ],
                 ),
-                button(
-                  'Export feedback ↗',
-                  Message.ClickedExport(),
-                  'primary full',
-                  open.length === 0,
-                ),
+                button('Export feedback ↗', Message.ClickedExport(), 'primary full', !open.length),
+                ...(m.feedbackEnabled ? [send(), feedbackStatus()] : []),
               ],
             ),
           ]
@@ -223,7 +385,7 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
                 h.p(
                   [h.Class('muted')],
                   [
-                    'Includes selectors, notes, and explicit Foldkit context. Review before sharing.',
+                    'Includes selectors, notes, source hints, and any attached images. Review before sharing.',
                   ],
                 ),
                 h.div(
@@ -233,6 +395,90 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
                     button('Copy report ↗', Message.ClickedCopy(), 'primary'),
                   ],
                 ),
+                ...(m.feedbackEnabled ? [send(), feedbackStatus()] : []),
+              ],
+            ),
+          ]
+        : []),
+      ...(m.panel === 'settings'
+        ? [
+            h.section(
+              [h.Class('panel settings'), h.AriaLabel('Foldmark options')],
+              [
+                header('Make it yours.', 'Selection, appearance, and recent changes.'),
+                h.h3([], ['Selection mode']),
+                h.div(
+                  [h.Class('options-row')],
+                  [
+                    option(
+                      'Single element',
+                      Message.ChangedSelectionMode({ mode: 'element' }),
+                      m.selectionMode === 'element',
+                    ),
+                    option(
+                      'Select multiple',
+                      Message.ChangedSelectionMode({ mode: 'multi' }),
+                      m.selectionMode === 'multi',
+                    ),
+                    option(
+                      'Select area',
+                      Message.ChangedSelectionMode({ mode: 'area' }),
+                      m.selectionMode === 'area',
+                    ),
+                  ],
+                ),
+                h.p(
+                  [h.Class('muted')],
+                  [
+                    'Multi-select toggles elements by click. Area mode creates a fixed document rectangle by dragging.',
+                  ],
+                ),
+                h.h3([], ['Appearance']),
+                h.div(
+                  [h.Class('options-row')],
+                  [
+                    option(
+                      'System theme',
+                      Message.ChangedTheme({ theme: 'system' }),
+                      m.theme === 'system',
+                    ),
+                    option(
+                      'Light theme',
+                      Message.ChangedTheme({ theme: 'light' }),
+                      m.theme === 'light',
+                    ),
+                    option(
+                      'Dark theme',
+                      Message.ChangedTheme({ theme: 'dark' }),
+                      m.theme === 'dark',
+                    ),
+                  ],
+                ),
+                h.h3([], ['Annotation history']),
+                h.div(
+                  [h.Class('options-row')],
+                  [
+                    button('Undo', Message.ClickedUndo(), 'secondary', !m.past.length),
+                    button('Redo', Message.ClickedRedo(), 'secondary', !m.future.length),
+                  ],
+                ),
+                h.p(
+                  [h.Class('muted')],
+                  ['Up to 30 changes in this session. Undo/redo also updates saved notes.'],
+                ),
+                ...(m.feedbackEnabled ? [h.h3([], ['Agent connection']), feedbackStatus()] : []),
+              ],
+            ),
+          ]
+        : []),
+      ...(m.active && m.selectionMode === 'multi' && !m.draft && m.selection.length
+        ? [
+            h.section(
+              [h.Class('selection-bar'), h.AriaLabel('Selected elements')],
+              [
+                h.span([], [`${m.selection.length} selected`]),
+                button('Clear selection', Message.ClickedClearSelection(), 'text-button'),
+                button('Annotate selection', Message.ClickedComposeSelection(), 'primary'),
               ],
             ),
           ]
@@ -247,7 +493,14 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
             ? [
                 h.div(
                   [h.Class('hint')],
-                  ['Click an element to annotate', h.span([], ['Esc to exit'])],
+                  [
+                    m.selectionMode === 'multi'
+                      ? 'Click elements, then annotate selection'
+                      : m.selectionMode === 'area'
+                        ? 'Drag an area to annotate'
+                        : 'Click an element to annotate',
+                    h.span([], ['Esc to exit']),
+                  ],
                 ),
               ]
             : []),
@@ -281,7 +534,17 @@ export function view(m: Model, h: HtmlBuilder<Message>) {
                 ],
                 [m.paused ? '▶' : 'Ⅱ'],
               ),
-              button('Export ↗', Message.ClickedExport(), 'export-button', open.length === 0),
+              h.button(
+                [
+                  h.Type('button'),
+                  h.Class(m.panel === 'settings' ? 'selected' : ''),
+                  h.AriaLabel('Foldmark options'),
+                  h.OnClick(Message.ClickedSettings()),
+                  h.Title('Selection, theme, undo and redo'),
+                ],
+                ['⚙'],
+              ),
+              button('Export ↗', Message.ClickedExport(), 'export-button', !open.length),
             ],
           ),
         ],

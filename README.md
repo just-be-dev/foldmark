@@ -6,7 +6,7 @@ Foldmark is an independent implementation inspired by the interaction concepts i
 
 ## Run the playground
 
-Requires Node.js 22.12+.
+Requires Node.js 22.19+.
 
 ```sh
 npm ci
@@ -61,7 +61,23 @@ h.button(
 )
 ```
 
-Hints are inherited from the nearest ancestor carrying each attribute. They are explicit source metadata, not automatic source-map resolution or snapshots of your model. A `context(element)` callback can also supply hints for applications with existing instrumentation.
+Hints are inherited from the nearest ancestor carrying each attribute. A `context(element)` callback can supply hints for applications with existing instrumentation. None of these mechanisms snapshots your Model.
+
+For automatic development-time source locations, opt in to the Vite plugin for application files:
+
+```ts
+import { defineConfig } from 'vite'
+import { foldmarkSourceHints } from 'foldmark/vite'
+
+export default defineConfig({
+  plugins: [foldmarkSourceHints({ include: 'src' })],
+  optimizeDeps: { include: ['effect'] },
+})
+```
+
+With the pinned Foldkit Vite plugin, include the `effect` barrel in dependency optimization even when your code uses `effect/*` imports. This keeps Foldkit and Foldmark on one optimized Schema instance; otherwise development port validation can fail. The demo and packaged-consumer checks cover this configuration.
+
+The plugin instruments supported Foldkit HTML-builder calls and leaves production builds alone. Existing explicit hints take precedence. For generated locations from other instrumentation, `foldmark/source-map` provides `createSourceResolver` with a host-supplied, allowlisted map loader. It never fetches maps by default. See [source mapping](docs/source-mapping.md) for supported syntax and resolver lifecycle.
 
 ```ts
 const feedback = mountFoldmark({
@@ -76,30 +92,65 @@ feedback.getAnnotations() // across every captured page in this session
 feedback.dispose()
 ```
 
-`onChange` runs after successful persistence (or immediately in memory-only mode). Use it for a host-owned integration. There is no automatic network transport.
+`onChange` runs after successful persistence (or immediately in memory-only mode). Use it for a host-owned integration. Saving a note does not transmit it.
+
+## Send feedback to an agent
+
+Run a local companion for one project. Pair only the exact origin Vite prints:
+
+```sh
+npm run feedback -- --project my-app --origin http://localhost:5173
+# Add --mcp when the agent host starts this process as an MCP stdio server.
+```
+
+The companion prints its loopback endpoint and the path to a private pairing-token file, never the token itself. Configure the widget explicitly from local development settings; do not commit the token, include it in URLs, or put it in production bundles:
+
+```ts
+mountFoldmark({
+  feedback: {
+    endpoint: 'http://127.0.0.1:5177',
+    projectId: 'my-app',
+    token: localPairingToken,
+  },
+})
+```
+
+Use **Send to agent** to submit feedback. The server persists requests, exposes their status, and grants an exclusive renewable lease before an agent acts. Completion and failure remain visible; a missed notification does not discard work. The browser client is also available separately from `foldmark/transport`.
+
+The MCP server provides list/get/claim/complete tools and subscribable feedback resources. A resource-change notification is not an instruction to start a model turn: each MCP host controls that behavior. The optional [Pi integration](docs/pi-integration.md) adds an explicitly enabled watcher that starts turns only when the session is idle. Loading the extension alone does not enable it.
+
+See [server setup and security](docs/feedback-server.md), [Pi setup](docs/pi-integration.md), and [testing and CI](docs/testing.md). The local companion is not a hosted multi-user service. Foldkit's own DevTools/MCP remains the tool for inspecting and time-traveling the host application's runtime Model; Foldmark does not capture it.
 
 ## What ships in 0.1
 
-- Hover highlighting and unique CSS selectors verified against the DOM.
-- Element notes with edit, resolve/reopen, and delete.
-- Selected text context when selection exists inside the chosen element.
-- Explicit Foldkit source, Model path, and Message hints.
-- Captured document bounds, viewport, and relevant computed styles.
-- Local, Schema-validated persistence, separated by origin/path/hash.
+- Hover highlighting and unique, root-aware CSS selectors verified against the DOM.
+- Element notes with edit, resolve/reopen, delete, and bounded undo/redo.
+- Multi-element and rectangular area selection.
+- Same-origin iframe and open shadow-root inspection, with explicit target paths.
+- Selected text context and explicit Foldkit Model path/Message hints.
+- Opt-in Vite source instrumentation and host-controlled source-map resolution.
+- Captured bounds/styles plus live pins that follow layout and nested scrolling.
+- Explicit screenshot attachments with privacy masks, image limits, and quota fallback.
+- Schema-validated local persistence and system/light/dark appearance settings.
 - Markdown and JSON export of open notes on the current route.
-- Copy and download, with visible clipboard and storage error states.
-- Pause/resume for running Web Animations, CSS animations, and videos.
-- Keyboard shortcuts, composer focus handling, and a responsive toolbar.
+- Authenticated opt-in feedback submission, MCP tools/notifications, and request statuses.
+- An optional Pi watcher with session approval and exclusive renewable work leases.
+- Pause/resume for discoverable animations, transitions, and media.
+- Keyboard shortcuts, focus handling, and a responsive toolbar.
 
-Shortcuts: **Alt+Shift+A** toggles Inspect; **Escape** cancels a draft, then exits Inspect; **Cmd/Ctrl+Enter** saves a note. Ordinary host click handlers are intercepted while selecting. Pre-existing host capture listeners may run before Foldmark's listener.
+See [widget features](docs/widget-features.md) for controls, screenshot providers, and capture limitations.
+
+Shortcuts: **Alt+Shift+A** toggles Inspect; **Escape** cancels a draft/selection, then exits Inspect; **Cmd/Ctrl+Enter** saves a note. **Cmd/Ctrl+Z** and **Cmd/Ctrl+Shift+Z** undo/redo Foldmark changes when inspecting or focused in the widget (text editors retain their native undo). Ordinary host click handlers are intercepted while selecting. Pre-existing host capture listeners may run before Foldmark's listener.
 
 ## Data and boundaries
 
-Notes remain in your browser under `foldmark:v1` unless you copy, download, or wire `onChange`. Reports contain page origin/path/hash, selectors, text excerpts, style information, explicit source hints, notes, and capture timestamps. Query strings and form values are not collected. Mark sensitive regions with `data-foldmark-private` to exclude their text; mark regions with `data-foldmark-ignore` to exclude them from selection. Review reports before sharing; selectors and user notes can still contain sensitive information. The demo loads Google Fonts; the widget itself has no external font or network requests.
+Notes remain in your browser under `foldmark:v1` unless you copy, download, explicitly send them, or wire a host-owned `onChange`. Reports contain page origin/path/hash, selectors, text excerpts, styles, source hints, notes, capture timestamps, and any explicitly attached screenshots. Query strings and form values are excluded from captured text. Credentials are never part of notes or reports.
 
-Captured bounds are historical coordinates. Pins follow page scrolling but do not track subsequent layout changes or independently scrolling containers. CSS transitions, canvas animations, new programmatic animations after pausing, and media inside embedded documents are not frozen. Selection currently supports the main document; iframe and shadow-root traversal, area selection, multi-select, screenshots, undo, and theme settings are not implemented.
+Mark sensitive regions with `data-foldmark-private` and excluded regions with `data-foldmark-ignore`. Screenshots mask private/ignored regions, form controls, and embedded documents conservatively. Native screenshots require an explicit action, browser consent, and Chromium's current-tab Region Capture support; other browsers need an explicit host screenshot provider. Providers receive the crop/masks and an abort signal; returned raster images are validated, resized, and masked again. Storage quota fallback preserves notes without screenshot data. Review every report and image before sharing: selectors, page text outside marked regions, and your own notes may still contain sensitive information.
 
-MCP/server sync is not included in this first release. Copy/download works with any coding agent; a future transport can consume the versioned JSON report or `onChange`. Foldkit's own DevTools/MCP remains the place to inspect and time-travel the host application's runtime state.
+Captured bounds in reports are historical; on-screen element pins re-resolve their targets as layout changes. Area selections remain fixed document coordinates. Detached targets are distinguished rather than silently relocated. Cross-origin iframes and closed shadow roots remain inaccessible under browser security rules. Animation pause covers discoverable Web/CSS animations, transitions, and media, including newly discovered work; it cannot freeze canvas/WebGL rendering or scripts, and it does not override the browser's cross-origin restrictions.
+
+There are no implicit feedback uploads. Pairing the widget does not submit notes; **Send to agent** starts submission and status polling. The optional source-map loader is host-owned and has no default network implementation. The demo loads Google Fonts; the widget itself does not. The companion is loopback-only and project-scoped, with exact browser-origin checks, a private pairing credential, and file-backed requests. It is not a substitute for normal agent permissions or a sandbox: captured feedback remains untrusted input.
 
 ## Development
 
@@ -109,9 +160,11 @@ npm test
 npm run test:browser
 npm run build
 npm run build:demo
+npm run test:consumer
+npm run format:check
 ```
 
-If Chromium is not installed, run `npx playwright install chromium`. Browser tests exercise capture, host-event interception, persistence, editing, resolve/reopen/delete, copy/download, navigation, keyboard handling, privacy, animation pause, disposal, and small-screen layout.
+Install browser engines with `npx playwright install chromium firefox webkit` (on Linux CI, add `--with-deps`). Browser tests cover real UI workflows and visual baselines across Chromium, Firefox, and WebKit. The consumer smoke test installs the built tarball into an isolated application and checks its declarations, server-safe imports, and browser mount/dispose. See [testing](docs/testing.md) for baseline updates and CI details.
 
 TypeScript 7.0.2 ships its native compiler under the `tsc` command. The `prepare` hook patches it with `@effect/tsgo`; the Effect language service is configured in `tsconfig.json`. `package-lock.json` pins the installed toolchain.
 
@@ -123,7 +176,12 @@ TypeScript 7.0.2 ships its native compiler under the `tsc` command. The `prepare
 - `src/index.ts`: public mount API and browser lifecycle adapter.
 - `src/view.ts`, `src/styles.ts`: isolated Foldkit toolbar UI.
 - `src/report.ts`: pure report generation.
+- `src/feedback.ts`, `src/transport.ts`: shared feedback protocol and opt-in browser transport.
+- `server/`: private durable queue, authenticated loopback HTTP, and MCP stdio adapter.
+- `integrations/pi/`: optional session-approved agent watcher.
+- `src/vite.ts`, `src/source-map.ts`: optional development source instrumentation and map resolution.
 - `demo/`: interactive Foldkit playground.
-- `tests/`: state/report tests and real Chromium workflows.
+- `tests/`: state, transport, server, agent bridge, packaged-consumer, and browser workflows.
+- `.github/workflows/`: repeatable release-readiness checks.
 
 MIT licensed. Foldmark is not affiliated with Agentation or Foldkit.
